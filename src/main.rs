@@ -3,7 +3,7 @@ use clap::Parser;
 use evdev::{
     uinput::VirtualDevice, Device, EventType, RelativeAxisCode,
 };
-use log::{debug, error, info};
+use log::{error, info};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -63,9 +63,7 @@ fn find_mouse_device(device_path: Option<PathBuf>) -> Result<Device> {
     
     for (path, device) in devices {
         let name = device.name().unwrap_or("Unknown");
-        debug!("Found device: {} at {}", name, path.display());
-        
-        
+
         // Check if it's a mouse by looking for mouse capabilities
         let events = device.supported_events();
         if events.contains(EventType::RELATIVE) {
@@ -90,7 +88,6 @@ fn create_virtual_mouse(physical_device: &Device) -> Result<VirtualDevice> {
 
     // Add relative axes (mouse movement and scroll)
     if let Some(relative_axes) = physical_device.supported_relative_axes() {
-        info!("Physical device supports relative axes: {:?}", relative_axes);
         builder = builder.with_relative_axes(&relative_axes)?;
     }
 
@@ -99,7 +96,6 @@ fn create_virtual_mouse(physical_device: &Device) -> Result<VirtualDevice> {
 
     // Add keys (mouse buttons)
     if let Some(keys) = physical_device.supported_keys() {
-        info!("Physical device supports keys: {:?}", keys);
         builder = builder.with_keys(&keys)?;
     }
 
@@ -107,8 +103,6 @@ fn create_virtual_mouse(physical_device: &Device) -> Result<VirtualDevice> {
 }
 
 fn run_pass_through_loop(physical_device: &mut Device, virtual_device: &mut VirtualDevice) -> Result<()> {
-    let mut event_count = 0u64;
-    
     loop {
         match physical_device.fetch_events() {
             Ok(events) => {
@@ -116,9 +110,6 @@ fn run_pass_through_loop(physical_device: &mut Device, virtual_device: &mut Virt
                 let mut event_batch = Vec::new();
                 
                 for event in events {
-                    event_count += 1;
-                    debug!("Event #{}: {:?}", event_count, event);
-                    
                     // For now, pass through all events unchanged
                     // In Phase 2, we'll add scroll acceleration logic here
                     event_batch.push(event);
