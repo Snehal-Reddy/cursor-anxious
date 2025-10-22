@@ -71,6 +71,7 @@ fn find_mouse_device(device_path: Option<PathBuf>) -> Result<Device> {
                 if relative_axes.contains(RelativeAxisCode::REL_X)
                     && relative_axes.contains(RelativeAxisCode::REL_Y)
                     && relative_axes.contains(RelativeAxisCode::REL_WHEEL)
+                    && relative_axes.contains(RelativeAxisCode::REL_HWHEEL)
                 {
                     info!("Found mouse device: {} at {}", name, path.display());
                     return Ok(device);
