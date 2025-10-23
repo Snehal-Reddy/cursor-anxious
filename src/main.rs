@@ -1,9 +1,11 @@
+#![feature(default_field_values)]
+
 use anyhow::{Context, Result};
 use clap::Parser;
 use evdev::{
     uinput::VirtualDevice, Device, EventType, RelativeAxisCode,
 };
-use log::{error, info};
+use log::{debug, error, info};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -18,6 +20,21 @@ struct Args {
     debug: bool,
 }
 
+struct AnxiousParams {
+    // Base sensitivity
+    base_sens: i32 = 1,
+    // Max sensitivity multiplier before clipping
+    max_sens: i32 = 50,
+    // How much acceleration to apply (higher = more acceleration)
+    accel: i32 = 2,
+    // Threshold for acceleration to apply
+    threshold: i32 = 10,
+    // Input scale factor
+    in_scale: i32 = 1,
+    // Output scale factor
+    out_scale: i32 = 1,
+}
+
 fn main() -> Result<()> {
     let args = Args::parse();
 
@@ -26,6 +43,9 @@ fn main() -> Result<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(log_level)).init();
 
     info!("Starting anxious scroll daemon");
+
+    // Initialize anxious parameters
+    let anxious_params = AnxiousParams{ .. };
 
     // Find the physical mouse device
     let mut physical_device = find_mouse_device(args.device)?;
@@ -47,7 +67,7 @@ fn main() -> Result<()> {
 
     // Main event loop - pass through all events
     info!("Starting event pass-through loop...");
-    run_pass_through_loop(&mut physical_device, &mut virtual_device)?;
+    run_pass_through_loop(&mut physical_device, &mut virtual_device, &anxious_params)?;
 
     Ok(())
 }
@@ -103,7 +123,12 @@ fn create_virtual_mouse(physical_device: &Device) -> Result<VirtualDevice> {
     Ok(builder.build()?)
 }
 
-fn run_pass_through_loop(physical_device: &mut Device, virtual_device: &mut VirtualDevice) -> Result<()> {
+#[inline(always)]
+fn apply_anxious_scroll(value: i32, anxious_params: &AnxiousParams) -> i32 {
+    value
+}
+
+fn run_pass_through_loop(physical_device: &mut Device, virtual_device: &mut VirtualDevice, anxious_params: &AnxiousParams) -> Result<()> {
     loop {
         match physical_device.fetch_events() {
             Ok(events) => {
@@ -111,10 +136,28 @@ fn run_pass_through_loop(physical_device: &mut Device, virtual_device: &mut Virt
                 let mut event_batch = Vec::new();
                 
                 for event in events {
-                    // For now, pass through all events unchanged
-                    // In Phase 2, we'll add scroll acceleration logic here
-                    event_batch.push(event);
+                    if event.event_type() == EventType::RELATIVE && event.code() == RelativeAxisCode::REL_WHEEL_HI_RES.0 {
+                        // Create a new event with modified value (example: double the scroll amount)
+                        let modified_value = apply_anxious_scroll(event.value(), anxious_params);
+                        // new_now() is not necessary here as the kernel will update the time field
+                        // when it emits the events to any programs reading the event "file".
+                        let modified_event = evdev::InputEvent::new(
+                            event.event_type().0,
+                            event.code(),
+                            modified_value
+                        );
+                        event_batch.push(modified_event);
+                        debug!("Modified scroll event: {:?}", modified_event);
+                    }
+                    else if event.event_type() == EventType::RELATIVE && event.code() == RelativeAxisCode::REL_WHEEL.0 {
+                        // Drop event
+                        continue;
+                    } else {
+                        // Pass through all other events unchanged
+                        event_batch.push(event);
+                    }
                 }
+                debug!("Processed {} events in batch", event_batch.len());
                 
                 // Emit all events in the batch together
                 if !event_batch.is_empty() {
