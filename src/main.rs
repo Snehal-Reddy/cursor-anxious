@@ -7,6 +7,7 @@ use evdev::{
 };
 use log::{debug, error, info};
 use std::path::PathBuf;
+use std::time::SystemTime;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -20,19 +21,18 @@ struct Args {
     debug: bool,
 }
 
+// TODO: Add ability to load params
 struct AnxiousParams {
-    // Base sensitivity
-    base_sens: i32 = 1,
-    // Max sensitivity multiplier before clipping
-    max_sens: i32 = 50,
-    // How much acceleration to apply (higher = more acceleration)
-    accel: i32 = 2,
-    // Threshold for acceleration to apply
-    threshold: i32 = 10,
-    // Input scale factor
-    in_scale: i32 = 1,
-    // Output scale factor
-    out_scale: i32 = 1,
+    /// Base sensitivity to start at
+    base_sens: f32 = 1.0,
+    /// Max sensitivity to taper off towards
+    max_sens: f32 = 15.0,
+    /// How fast to ramp up the logistic function
+    ramp_up_rate: f32 = 0.3,
+}
+
+struct AnxiousState {
+    prev_time: SystemTime,
 }
 
 fn main() -> Result<()> {
@@ -44,8 +44,10 @@ fn main() -> Result<()> {
 
     info!("Starting anxious scroll daemon");
 
-    // Initialize anxious parameters
+    // Initialize anxious parameters and state
     let anxious_params = AnxiousParams{ .. };
+    // TODO: analyse initial jitter?
+    let mut anxious_state = AnxiousState{ prev_time: SystemTime::now() };
 
     // Find the physical mouse device
     let mut physical_device = find_mouse_device(args.device)?;
@@ -67,7 +69,7 @@ fn main() -> Result<()> {
 
     // Main event loop - pass through all events
     info!("Starting event pass-through loop...");
-    run_pass_through_loop(&mut physical_device, &mut virtual_device, &anxious_params)?;
+    run_pass_through_loop(&mut physical_device, &mut virtual_device, &anxious_params, &mut anxious_state)?;
 
     Ok(())
 }
@@ -124,11 +126,22 @@ fn create_virtual_mouse(physical_device: &Device) -> Result<VirtualDevice> {
 }
 
 #[inline(always)]
-fn apply_anxious_scroll(value: i32, anxious_params: &AnxiousParams) -> i32 {
-    value
+/// We use a logistic function as the transformation function.
+/// f(vel) = max_sens / (1 + C * e^(-ramp_up_rate * vel)), where
+/// C = (max_sens / (base_sens) - 1
+/// Visualisation: https://www.desmos.com/calculator/grsgyudrch
+fn apply_anxious_scroll(value: f32, timestamp: SystemTime, anxious_params: &AnxiousParams, anxious_state: &mut AnxiousState) -> i32 {
+    let elapsed_time = timestamp.duration_since(anxious_state.prev_time).unwrap();
+    anxious_state.prev_time = timestamp;
+
+    let vel = value.abs() / elapsed_time.as_millis() as f32;
+    let C = (anxious_params.max_sens / anxious_params.base_sens) - 1.0;
+    // TODO: Use fast approximation for the calculation
+    let sens = anxious_params.max_sens / (1.0 + C * (-1.0 * vel as f32 * anxious_params.ramp_up_rate).exp());
+    return (value * sens) as i32;
 }
 
-fn run_pass_through_loop(physical_device: &mut Device, virtual_device: &mut VirtualDevice, anxious_params: &AnxiousParams) -> Result<()> {
+fn run_pass_through_loop(physical_device: &mut Device, virtual_device: &mut VirtualDevice, anxious_params: &AnxiousParams, anxious_state: &mut AnxiousState) -> Result<()> {
     loop {
         match physical_device.fetch_events() {
             Ok(events) => {
@@ -137,8 +150,8 @@ fn run_pass_through_loop(physical_device: &mut Device, virtual_device: &mut Virt
                 
                 for event in events {
                     if event.event_type() == EventType::RELATIVE && event.code() == RelativeAxisCode::REL_WHEEL_HI_RES.0 {
-                        // Create a new event with modified value (example: double the scroll amount)
-                        let modified_value = apply_anxious_scroll(event.value(), anxious_params);
+                        // Create a new event with modified value
+                        let modified_value = apply_anxious_scroll(event.value() as f32, event.timestamp(),anxious_params, anxious_state);
                         // new_now() is not necessary here as the kernel will update the time field
                         // when it emits the events to any programs reading the event "file".
                         let modified_event = evdev::InputEvent::new(
@@ -147,7 +160,6 @@ fn run_pass_through_loop(physical_device: &mut Device, virtual_device: &mut Virt
                             modified_value
                         );
                         event_batch.push(modified_event);
-                        debug!("Modified scroll event: {:?}", modified_event);
                     }
                     else if event.event_type() == EventType::RELATIVE && event.code() == RelativeAxisCode::REL_WHEEL.0 {
                         // Drop event
@@ -157,7 +169,6 @@ fn run_pass_through_loop(physical_device: &mut Device, virtual_device: &mut Virt
                         event_batch.push(event);
                     }
                 }
-                debug!("Processed {} events in batch", event_batch.len());
                 
                 // Emit all events in the batch together
                 if !event_batch.is_empty() {
