@@ -25,11 +25,16 @@ The daemon uses a logistic function for smooth, natural acceleration:
 f(velocity) = max_sensitivity / (1 + C * e^(-ramp_rate * velocity))
 ```
 
+Now at zero veloctity, we would like `base_sensitivity`
+
+```
+C = (max_sensitivity / base_sensitivity) - 1
+```
+
 Where:
 - `base_sensitivity`: Starting sensitivity (default: 1.0)
 - `max_sensitivity`: Maximum sensitivity (default: 15.0) 
 - `ramp_rate`: How quickly to accelerate (default: 0.3)
-- `C = (max_sensitivity / base_sensitivity) - 1`
 
 This creates a smooth curve that starts slow for precision and ramps up for speed.
 
