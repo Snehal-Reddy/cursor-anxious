@@ -13,6 +13,13 @@ anyhow = "1.0"
 log = "0.4"
 env_logger = "0.11.8"
 
+[dev-dependencies]
+criterion = { version = "0.7", features = ["html_reports"] }
+
+[[bench]]
+name = "benchmarks"
+harness = false
+
 [[bin]]
 name = "anxious-scroll-daemon"
 path = "src/main.rs"
