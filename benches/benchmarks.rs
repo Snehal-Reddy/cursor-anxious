@@ -11,18 +11,18 @@ fn create_anxious_state_with_time(prev_time: SystemTime) -> AnxiousState {
 
 fn create_test_events() -> Vec<InputEvent> {
     vec![
-        // High-res wheel events (these get processed)
-        InputEvent::new(EventType::RELATIVE.0, RelativeAxisCode::REL_WHEEL_HI_RES.0, 120),
-        InputEvent::new(EventType::RELATIVE.0, RelativeAxisCode::REL_WHEEL_HI_RES.0, 240),
-        InputEvent::new(EventType::RELATIVE.0, RelativeAxisCode::REL_WHEEL_HI_RES.0, 360),
+        // High-res wheel events (these get processed) - with proper timestamps
+        InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_WHEEL_HI_RES.0, 120),
+        InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_WHEEL_HI_RES.0, 240),
+        InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_WHEEL_HI_RES.0, 360),
         
         // Regular wheel events (these get dropped)
-        InputEvent::new(EventType::RELATIVE.0, RelativeAxisCode::REL_WHEEL.0, 1),
-        InputEvent::new(EventType::RELATIVE.0, RelativeAxisCode::REL_WHEEL.0, -1),
+        InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_WHEEL.0, 1),
+        InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_WHEEL.0, -1),
         
         // Other events (these get passed through)
-        InputEvent::new(EventType::RELATIVE.0, RelativeAxisCode::REL_X.0, 10),
-        InputEvent::new(EventType::RELATIVE.0, RelativeAxisCode::REL_Y.0, 5),
+        InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_X.0, 10),
+        InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_Y.0, 5),
     ]
 }
 
@@ -46,10 +46,10 @@ fn benchmark_apply_anxious_scroll(c: &mut Criterion) {
                 // Use a fixed timestamp to avoid SystemTime overflow issues
                 let base_time = UNIX_EPOCH + Duration::from_secs(1000000000); // Far in the future
                 let mut state = create_anxious_state_with_time(base_time);
+                let timestamp = base_time + *elapsed; // Pre-compute timestamp outside hot path
                 
                 b.iter(|| {
-                    // Create a new timestamp for each iteration
-                    let timestamp = base_time + *elapsed;
+                    // Only measure the hot path: apply_anxious_scroll call
                     black_box(apply_anxious_scroll(
                         black_box(*value),
                         black_box(timestamp),
@@ -84,9 +84,10 @@ fn benchmark_apply_anxious_scroll(c: &mut Criterion) {
             |b, params| {
                 let base_time = UNIX_EPOCH + Duration::from_secs(1000000000);
                 let mut state = create_anxious_state_with_time(base_time);
+                let timestamp = base_time + Duration::from_millis(10); // Pre-compute timestamp outside hot path
                 
                 b.iter(|| {
-                    let timestamp = base_time + Duration::from_millis(10);
+                    // Only measure the hot path: apply_anxious_scroll call
                     black_box(apply_anxious_scroll(
                         black_box(10.0),
                         black_box(timestamp),
@@ -120,48 +121,31 @@ fn benchmark_event_processing(c: &mut Criterion) {
                     let base_time = UNIX_EPOCH + Duration::from_secs(1000000000);
                     let mut state_clone = create_anxious_state_with_time(base_time);
                     
-                    // Process events but skip the ones that would cause timestamp issues
-                    let mut processed_events = Vec::new();
-                    for event in &events {
-                        if event.event_type() == EventType::RELATIVE
-                            && event.code() == RelativeAxisCode::REL_WHEEL_HI_RES.0 {
-                            // Skip processing to avoid timestamp calculation issues
-                            // Just pass through the event
-                            processed_events.push(*event);
-                        } else if event.event_type() == EventType::RELATIVE
-                            && event.code() == RelativeAxisCode::REL_WHEEL.0 {
-                            // Drop event
-                            continue;
-                        } else {
-                            // Pass through all other events unchanged
-                            processed_events.push(*event);
-                        }
-                    }
-                    black_box(processed_events)
+                    // Use the actual process_events function - this is the real hot path
+                    black_box(process_events(
+                        black_box(events.iter().cloned()),
+                        black_box(&params),
+                        black_box(&mut state_clone),
+                    ))
                 })
             },
         );
     }
     
-    // Test event filtering performance (without anxious scroll calculation)
-    group.bench_function("event_filtering", |b| {
+    // Test realistic event processing with proper timestamps
+    group.bench_function("realistic_event_processing", |b| {
         let events = create_test_events();
+        let params = AnxiousParams::default();
+        let base_time = UNIX_EPOCH + Duration::from_secs(1000000000);
         
         b.iter(|| {
-            let mut filtered_events = Vec::new();
-            for event in &events {
-                if event.event_type() == EventType::RELATIVE
-                    && event.code() == RelativeAxisCode::REL_WHEEL_HI_RES.0 {
-                    filtered_events.push(*event);
-                } else if event.event_type() == EventType::RELATIVE
-                    && event.code() == RelativeAxisCode::REL_WHEEL.0 {
-                    // Drop event
-                    continue;
-                } else {
-                    filtered_events.push(*event);
-                }
-            }
-            black_box(filtered_events)
+            let mut state_clone = create_anxious_state_with_time(base_time);
+            // Use the actual process_events function with proper timestamps
+            black_box(process_events(
+                black_box(events.iter().cloned()),
+                black_box(&params),
+                black_box(&mut state_clone),
+            ))
         })
     });
     
