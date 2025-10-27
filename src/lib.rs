@@ -84,7 +84,8 @@ pub fn process_events(
             );
             // new_now() is not necessary here as the kernel will update the time field
             // when it emits the events to any programs reading the event "file".
-            let modified_event = InputEvent::new(event.event_type().0, event.code(), modified_value);
+            let modified_event =
+                InputEvent::new(event.event_type().0, event.code(), modified_value);
             event_batch.push(modified_event);
         } else if event.event_type() == EventType::RELATIVE
             && event.code() == RelativeAxisCode::REL_WHEEL.0
@@ -114,8 +115,13 @@ mod tests {
         let params = AnxiousParams::default();
         let base_time = UNIX_EPOCH + Duration::from_secs(1000000000);
         let mut state = create_test_state_with_time(base_time);
-        
-        let result = apply_anxious_scroll(0.0, base_time + Duration::from_millis(10), &params, &mut state);
+
+        let result = apply_anxious_scroll(
+            0.0,
+            base_time + Duration::from_millis(10),
+            &params,
+            &mut state,
+        );
         assert_eq!(result, 0);
     }
 
@@ -124,8 +130,13 @@ mod tests {
         let params = AnxiousParams::default();
         let base_time = UNIX_EPOCH + Duration::from_secs(1000000000);
         let mut state = create_test_state_with_time(base_time);
-        
-        let result = apply_anxious_scroll(1000.0, base_time + Duration::from_millis(1), &params, &mut state);
+
+        let result = apply_anxious_scroll(
+            1000.0,
+            base_time + Duration::from_millis(1),
+            &params,
+            &mut state,
+        );
         // Should not panic and should return a reasonable value
         assert!(result > 0);
     }
@@ -135,8 +146,13 @@ mod tests {
         let params = AnxiousParams::default();
         let base_time = UNIX_EPOCH + Duration::from_secs(1000000000);
         let mut state = create_test_state_with_time(base_time);
-        
-        let result = apply_anxious_scroll(-10.0, base_time + Duration::from_millis(10), &params, &mut state);
+
+        let result = apply_anxious_scroll(
+            -10.0,
+            base_time + Duration::from_millis(10),
+            &params,
+            &mut state,
+        );
         assert!(result < 0);
     }
 
@@ -145,9 +161,14 @@ mod tests {
         let params = AnxiousParams::default();
         let base_time = UNIX_EPOCH + Duration::from_secs(1000000000);
         let mut state = create_test_state_with_time(base_time);
-        
+
         // Test with very small elapsed time (1 microsecond)
-        let result = apply_anxious_scroll(10.0, base_time + Duration::from_micros(1), &params, &mut state);
+        let result = apply_anxious_scroll(
+            10.0,
+            base_time + Duration::from_micros(1),
+            &params,
+            &mut state,
+        );
         // Should not panic and should return a reasonable value
         assert!(result > 0);
     }
@@ -156,32 +177,47 @@ mod tests {
     fn test_parameter_configurations() {
         let base_time = UNIX_EPOCH + Duration::from_secs(1000000000);
         let mut state = create_test_state_with_time(base_time);
-        
+
         // Test default parameters
         let default_params = AnxiousParams::default();
-        let result1 = apply_anxious_scroll(10.0, base_time + Duration::from_millis(10), &default_params, &mut state);
-        
+        let result1 = apply_anxious_scroll(
+            10.0,
+            base_time + Duration::from_millis(10),
+            &default_params,
+            &mut state,
+        );
+
         // Test high sensitivity
         let high_sens_params = AnxiousParams {
             base_sens: 1.0,
             max_sens: 30.0,
             ramp_up_rate: 0.5,
         };
-        let result2 = apply_anxious_scroll(10.0, base_time + Duration::from_millis(10), &high_sens_params, &mut state);
-        
+        let result2 = apply_anxious_scroll(
+            10.0,
+            base_time + Duration::from_millis(10),
+            &high_sens_params,
+            &mut state,
+        );
+
         // Test low sensitivity
         let low_sens_params = AnxiousParams {
             base_sens: 0.5,
             max_sens: 5.0,
             ramp_up_rate: 0.1,
         };
-        let result3 = apply_anxious_scroll(10.0, base_time + Duration::from_millis(10), &low_sens_params, &mut state);
-        
+        let result3 = apply_anxious_scroll(
+            10.0,
+            base_time + Duration::from_millis(10),
+            &low_sens_params,
+            &mut state,
+        );
+
         // All should return reasonable values
         assert!(result1 > 0);
         assert!(result2 > 0);
         assert!(result3 > 0);
-        
+
         // High sensitivity should generally produce higher values than low sensitivity
         assert!(result2 > result3);
     }
@@ -189,27 +225,31 @@ mod tests {
     #[test]
     fn test_process_events_basic() {
         use evdev::{EventType, InputEvent, RelativeAxisCode};
-        
+
         // Create events with proper timestamps to avoid SystemTime issues
         let base_time = UNIX_EPOCH + Duration::from_secs(1000000000);
         let events = vec![
-            InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_WHEEL_HI_RES.0, 120),
+            InputEvent::new_now(
+                EventType::RELATIVE.0,
+                RelativeAxisCode::REL_WHEEL_HI_RES.0,
+                120,
+            ),
             InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_WHEEL.0, 1), // Should be dropped
             InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_X.0, 10), // Should pass through
         ];
-        
+
         let params = AnxiousParams::default();
         let mut state = create_test_state_with_time(base_time);
-        
+
         let result = process_events(events.iter().cloned(), &params, &mut state);
-        
+
         // Should have 2 events: one processed wheel event and one pass-through event
         assert_eq!(result.len(), 2);
-        
+
         // First event should be the processed wheel event
         assert_eq!(result[0].event_type(), EventType::RELATIVE);
         assert_eq!(result[0].code(), RelativeAxisCode::REL_WHEEL_HI_RES.0);
-        
+
         // Second event should be the pass-through event
         assert_eq!(result[1].event_type(), EventType::RELATIVE);
         assert_eq!(result[1].code(), RelativeAxisCode::REL_X.0);

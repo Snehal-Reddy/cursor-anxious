@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use clap::Parser;
-use evdev::{uinput::VirtualDevice, Device, EventType, RelativeAxisCode};
+use evdev::{Device, EventType, RelativeAxisCode, uinput::VirtualDevice};
 use log::{error, info};
 use mouse_scroll_daemon::{AnxiousParams, AnxiousState, process_events};
 use std::path::PathBuf;
@@ -33,7 +33,10 @@ fn main() -> Result<()> {
 
     // Find the physical mouse device
     let mut physical_device = find_mouse_device(args.device)?;
-    info!("Found physical mouse: {}", physical_device.name().unwrap_or("Unknown"));
+    info!(
+        "Found physical mouse: {}",
+        physical_device.name().unwrap_or("Unknown")
+    );
 
     // Create virtual mouse device
     let mut virtual_device = create_virtual_mouse(&physical_device)?;
@@ -46,12 +49,19 @@ fn main() -> Result<()> {
     }
 
     // Grab the physical device to get exclusive access
-    physical_device.grab().context("Failed to grab physical device")?;
+    physical_device
+        .grab()
+        .context("Failed to grab physical device")?;
     info!("Grabbed physical device for exclusive access");
 
     // Main event loop - pass through all events
     info!("Starting event pass-through loop...");
-    run_pass_through_loop(&mut physical_device, &mut virtual_device, &anxious_params, &mut anxious_state)?;
+    run_pass_through_loop(
+        &mut physical_device,
+        &mut virtual_device,
+        &anxious_params,
+        &mut anxious_state,
+    )?;
 
     Ok(())
 }
@@ -64,7 +74,7 @@ fn find_mouse_device(device_path: Option<PathBuf>) -> Result<Device> {
 
     info!("Searching for mouse devices...");
     let devices = evdev::enumerate().collect::<Vec<_>>();
-    
+
     for (path, device) in devices {
         let name = device.name().unwrap_or("Unknown");
 
@@ -88,8 +98,7 @@ fn find_mouse_device(device_path: Option<PathBuf>) -> Result<Device> {
 }
 
 fn create_virtual_mouse(physical_device: &Device) -> Result<VirtualDevice> {
-    let mut builder = VirtualDevice::builder()?
-        .name("Anxious Scroll Daemon");
+    let mut builder = VirtualDevice::builder()?.name("Anxious Scroll Daemon");
 
     // Add relative axes (mouse movement and scroll)
     if let Some(relative_axes) = physical_device.supported_relative_axes() {
@@ -107,7 +116,6 @@ fn create_virtual_mouse(physical_device: &Device) -> Result<VirtualDevice> {
     Ok(builder.build()?)
 }
 
-
 fn run_pass_through_loop(
     physical_device: &mut Device,
     virtual_device: &mut VirtualDevice,
@@ -119,7 +127,7 @@ fn run_pass_through_loop(
             Ok(events) => {
                 // Process events using the pure function from lib
                 let event_batch = process_events(events, anxious_params, anxious_state);
-                
+
                 // Emit all events in the batch together
                 if !event_batch.is_empty() {
                     virtual_device.emit(&event_batch)?;
