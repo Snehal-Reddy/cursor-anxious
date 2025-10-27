@@ -88,80 +88,22 @@ fn create_test_events() -> Vec<InputEvent> {
 fn benchmark_apply_anxious_scroll(c: &mut Criterion) {
     let mut group = c.benchmark_group("apply_anxious_scroll");
 
-    // Test different velocity scenarios
-    let scenarios = vec![
-        ("slow_scroll", 1.0, Duration::from_millis(100)), // 10 units/sec
-        ("medium_scroll", 5.0, Duration::from_millis(50)), // 100 units/sec
-        ("fast_scroll", 15.0, Duration::from_millis(10)), // 1500 units/sec
-        ("very_fast_scroll", 50.0, Duration::from_millis(5)), // 10000 units/sec
-    ];
+    // Simple benchmark of the core function - velocity doesn't affect performance
+    group.bench_function("core_function", |b| {
+        let params = AnxiousParams::default();
+        let base_time = UNIX_EPOCH + Duration::from_secs(1000000000);
+        let mut state = create_anxious_state_with_time(base_time);
+        let timestamp = base_time + Duration::from_millis(10);
 
-    for (name, value, elapsed) in scenarios {
-        group.bench_with_input(
-            BenchmarkId::new("velocity_scenarios", name),
-            &(value, elapsed),
-            |b, (value, elapsed)| {
-                let params = AnxiousParams::default();
-                // Use a fixed timestamp to avoid SystemTime overflow issues
-                let base_time = UNIX_EPOCH + Duration::from_secs(1000000000); // Far in the future
-                let mut state = create_anxious_state_with_time(base_time);
-                let timestamp = base_time + *elapsed; // Pre-compute timestamp outside hot path
-
-                b.iter(|| {
-                    // Only measure the hot path: apply_anxious_scroll call
-                    black_box(apply_anxious_scroll(
-                        black_box(*value),
-                        black_box(timestamp),
-                        black_box(&params),
-                        black_box(&mut state),
-                    ))
-                })
-            },
-        );
-    }
-
-    // Test different parameter configurations
-    let param_configs = vec![
-        ("default", AnxiousParams::default()),
-        (
-            "high_sensitivity",
-            AnxiousParams {
-                base_sens: 1.0,
-                max_sens: 30.0,
-                ramp_up_rate: 0.5,
-            },
-        ),
-        (
-            "low_sensitivity",
-            AnxiousParams {
-                base_sens: 0.5,
-                max_sens: 5.0,
-                ramp_up_rate: 0.1,
-            },
-        ),
-    ];
-
-    for (name, params) in param_configs {
-        group.bench_with_input(
-            BenchmarkId::new("parameter_configs", name),
-            &params,
-            |b, params| {
-                let base_time = UNIX_EPOCH + Duration::from_secs(1000000000);
-                let mut state = create_anxious_state_with_time(base_time);
-                let timestamp = base_time + Duration::from_millis(10); // Pre-compute timestamp outside hot path
-
-                b.iter(|| {
-                    // Only measure the hot path: apply_anxious_scroll call
-                    black_box(apply_anxious_scroll(
-                        black_box(10.0),
-                        black_box(timestamp),
-                        black_box(params),
-                        black_box(&mut state),
-                    ))
-                })
-            },
-        );
-    }
+        b.iter(|| {
+            black_box(apply_anxious_scroll(
+                black_box(120.0),
+                black_box(timestamp),
+                black_box(&params),
+                black_box(&mut state),
+            ))
+        })
+    });
 
     group.finish();
 }
@@ -169,8 +111,8 @@ fn benchmark_apply_anxious_scroll(c: &mut Criterion) {
 fn benchmark_event_processing(c: &mut Criterion) {
     let mut group = c.benchmark_group("event_processing");
 
-    // Test different batch sizes - simplified to avoid timestamp issues
-    let batch_sizes = vec![1, 5, 10, 20, 50];
+    // Test different batch sizes
+    let batch_sizes = vec![1, 5, 10, 20];
 
     for size in batch_sizes {
         group.bench_with_input(BenchmarkId::new("batch_size", size), &size, |b, &size| {
