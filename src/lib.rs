@@ -50,7 +50,14 @@ pub fn apply_anxious_scroll(
     anxious_params: &AnxiousParams,
     anxious_state: &mut AnxiousState,
 ) -> i32 {
-    let elapsed_time = timestamp.duration_since(anxious_state.prev_time).unwrap();
+    let elapsed_time = match timestamp.duration_since(anxious_state.prev_time) {
+        Ok(duration) => duration,
+        Err(_) => {
+            // If timestamp is earlier than prev_time (clock adjustment, out-of-order events, etc.),
+            // use a slow scroll duration (1 second) to treat it as a gentle scroll
+            std::time::Duration::from_millis(1000)
+        }
+    };
     anxious_state.prev_time = timestamp;
 
     let vel = value.abs() / elapsed_time.as_millis() as f32;
@@ -172,6 +179,27 @@ mod tests {
         // Should not panic and should return a reasonable value
         assert!(result > 0);
     }
+
+    #[test]
+    fn test_out_of_order_events() {
+        let params = AnxiousParams::default();
+        let base_time = UNIX_EPOCH + Duration::from_secs(1000000000);
+        let mut state = create_test_state_with_time(base_time + Duration::from_millis(100));
+
+        // Test with out-of-order event (timestamp earlier than prev_time)
+        let result = apply_anxious_scroll(
+            120.0,
+            base_time + Duration::from_millis(50), // Earlier than prev_time
+            &params,
+            &mut state,
+        );
+        // Should not panic and should return a reasonable value
+        // The fallback duration (1000ms) should result in slow scroll behavior
+        assert!(result > 0);
+        // With 1000ms duration, this should behave like a slow scroll (low sensitivity)
+        assert!(result < 2000); // Should be reasonable for slow scroll
+    }
+
 
     #[test]
     fn test_parameter_configurations() {

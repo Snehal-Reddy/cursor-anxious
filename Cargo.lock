@@ -404,6 +404,7 @@ dependencies = [
  "criterion",
  "env_logger",
  "evdev",
+ "libc",
  "log",
  "nix 0.30.1",
 ]

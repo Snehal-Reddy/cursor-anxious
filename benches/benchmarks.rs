@@ -4,35 +4,84 @@ use mouse_scroll_daemon::{AnxiousParams, AnxiousState, apply_anxious_scroll, pro
 use std::hint::black_box;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+// Helper function to create InputEvent with specific timestamp
+// This replicates the internal logic from evdev crate
+fn create_input_event_with_timestamp(
+    event_type: EventType,
+    code: u16,
+    value: i32,
+    timestamp: SystemTime,
+) -> InputEvent {
+    let (sign, dur) = match timestamp.duration_since(UNIX_EPOCH) {
+        Ok(dur) => (1, dur),
+        Err(e) => (-1, e.duration()),
+    };
+
+    let raw = libc::input_event {
+        time: libc::timeval {
+            tv_sec: dur.as_secs() as libc::time_t * sign,
+            tv_usec: dur.subsec_micros() as libc::suseconds_t,
+        },
+        type_: event_type.0,
+        code,
+        value,
+    };
+    InputEvent::from(raw)
+}
+
 // Helper function to create AnxiousState with a specific timestamp
 fn create_anxious_state_with_time(prev_time: SystemTime) -> AnxiousState {
     AnxiousState { prev_time }
 }
 
 fn create_test_events() -> Vec<InputEvent> {
+    let base_time = UNIX_EPOCH + Duration::from_secs(1000000000);
     vec![
-        // High-res wheel events (these get processed) - with proper timestamps
-        InputEvent::new_now(
-            EventType::RELATIVE.0,
+        // High-res wheel events (these get processed) - simulate realistic scroll sequence
+        create_input_event_with_timestamp(
+            EventType::RELATIVE,
             RelativeAxisCode::REL_WHEEL_HI_RES.0,
             120,
+            base_time + Duration::from_millis(0),
         ),
-        InputEvent::new_now(
-            EventType::RELATIVE.0,
+        create_input_event_with_timestamp(
+            EventType::RELATIVE,
             RelativeAxisCode::REL_WHEEL_HI_RES.0,
             240,
+            base_time + Duration::from_millis(10),
         ),
-        InputEvent::new_now(
-            EventType::RELATIVE.0,
+        create_input_event_with_timestamp(
+            EventType::RELATIVE,
             RelativeAxisCode::REL_WHEEL_HI_RES.0,
             360,
+            base_time + Duration::from_millis(20),
         ),
         // Regular wheel events (these get dropped)
-        InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_WHEEL.0, 1),
-        InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_WHEEL.0, -1),
+        create_input_event_with_timestamp(
+            EventType::RELATIVE,
+            RelativeAxisCode::REL_WHEEL.0,
+            1,
+            base_time + Duration::from_millis(30),
+        ),
+        create_input_event_with_timestamp(
+            EventType::RELATIVE,
+            RelativeAxisCode::REL_WHEEL.0,
+            -1,
+            base_time + Duration::from_millis(40),
+        ),
         // Other events (these get passed through)
-        InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_X.0, 10),
-        InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_Y.0, 5),
+        create_input_event_with_timestamp(
+            EventType::RELATIVE,
+            RelativeAxisCode::REL_X.0,
+            10,
+            base_time + Duration::from_millis(50),
+        ),
+        create_input_event_with_timestamp(
+            EventType::RELATIVE,
+            RelativeAxisCode::REL_Y.0,
+            5,
+            base_time + Duration::from_millis(60),
+        ),
     ]
 }
 
@@ -131,10 +180,10 @@ fn benchmark_event_processing(c: &mut Criterion) {
                 .take(size)
                 .collect::<Vec<_>>();
             let params = AnxiousParams::default();
+            let base_time = UNIX_EPOCH + Duration::from_secs(1000000000);
 
             b.iter(|| {
-                // Create a simple state that won't cause timestamp issues
-                let base_time = UNIX_EPOCH + Duration::from_secs(1000000000);
+                // Create a state with a timestamp before the events to ensure proper ordering
                 let mut state_clone = create_anxious_state_with_time(base_time);
 
                 // Use the actual process_events function - this is the real hot path
@@ -154,6 +203,7 @@ fn benchmark_event_processing(c: &mut Criterion) {
         let base_time = UNIX_EPOCH + Duration::from_secs(1000000000);
 
         b.iter(|| {
+            // Create a state with a timestamp before the events to ensure proper ordering
             let mut state_clone = create_anxious_state_with_time(base_time);
             // Use the actual process_events function with proper timestamps
             black_box(process_events(
