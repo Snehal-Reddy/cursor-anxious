@@ -38,34 +38,71 @@ Where:
 
 This creates a smooth curve that starts slow for precision and ramps up for speed.
 
-## 🚀 Quick Start
+## 📦 Installation as System Service
 
-### Prerequisites
+### Quick Installation
 
-- Linux system with evdev/uinput support
-- Rust toolchain (latest stable)
-- Root privileges (for device access)
-
-### Building
+To install the daemon as a system service that starts automatically on boot:
 
 ```bash
-git clone <repository-url>
-cd cursor-anxious
+# Install and optionally start the service
+sudo ./install.sh
+
+# Uninstall the service
+sudo ./uninstall.sh
+```
+
+### Manual Installation
+
+If you prefer to install manually:
+
+```bash
+# Build the release binary
 cargo build --release
+
+# Copy binary to system location
+sudo cp target/release/anxious-scroll-daemon /usr/local/bin/
+sudo chmod +x /usr/local/bin/anxious-scroll-daemon
+
+# Copy service file
+sudo cp anxious-scroll-daemon.service /etc/systemd/system/
+
+# Enable and start the service
+sudo systemctl daemon-reload
+sudo systemctl enable anxious-scroll-daemon
+sudo systemctl start anxious-scroll-daemon
 ```
 
-### Running
+### Service Management
 
 ```bash
-# Auto-detect mouse device
-sudo ./target/release/anxious-scroll-daemon
+# Check service status
+sudo systemctl status anxious-scroll-daemon
 
-# Specify device manually
-sudo ./target/release/anxious-scroll-daemon --device /dev/input/event3
+# Start the service
+sudo systemctl start anxious-scroll-daemon
 
-# Enable debug logging
-sudo ./target/release/anxious-scroll-daemon --debug
+# Stop the service
+sudo systemctl stop anxious-scroll-daemon
+
+# Restart the service
+sudo systemctl restart anxious-scroll-daemon
+
+# View live logs
+sudo journalctl -u anxious-scroll-daemon -f
+
+# View recent logs
+sudo journalctl -u anxious-scroll-daemon --since "1 hour ago"
 ```
+
+### Troubleshooting
+
+If the service fails to start or doesn't detect your mouse:
+
+1. **Check service logs**: `sudo journalctl -u anxious-scroll-daemon -f`
+2. **Find your mouse device**: `ls -l /dev/input/by-id/`
+3. **Test device manually**: `sudo evtest /dev/input/eventX`
+4. **Specify device manually**: Edit `/etc/systemd/system/anxious-scroll-daemon.service` and add `--device /dev/input/eventX` to the ExecStart line
 
 ### Finding Your Mouse Device
 
