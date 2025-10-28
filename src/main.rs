@@ -4,6 +4,7 @@ use evdev::{Device, EventType, RelativeAxisCode, uinput::VirtualDevice};
 use log::{error, info};
 use mouse_scroll_daemon::{AnxiousParams, AnxiousState, process_events};
 use std::path::PathBuf;
+use std::path::Path;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -74,6 +75,7 @@ fn find_mouse_device(device_path: Option<PathBuf>) -> Result<Device> {
 
     info!("Searching for mouse devices...");
     let devices = evdev::enumerate().collect::<Vec<_>>();
+    let mut best: Option<(Device, u16, std::path::PathBuf)> = None;
 
     for (path, device) in devices {
         let name = device.name().unwrap_or("Unknown");
@@ -87,11 +89,35 @@ fn find_mouse_device(device_path: Option<PathBuf>) -> Result<Device> {
                     && relative_axes.contains(RelativeAxisCode::REL_WHEEL)
                     && relative_axes.contains(RelativeAxisCode::REL_HWHEEL)
                 {
-                    info!("Found mouse device: {} at {}", name, path.display());
-                    return Ok(device);
+                    let input_id = device.input_id();
+                    let product = input_id.product();
+                    info!(
+                        "Found mouse device: {} at {} (product: 0x{:04x})",
+                        name,
+                        path.display(),
+                        product
+                    );
+                    match &mut best {
+                        None => best = Some((device, product, path)),
+                        Some((_, best_prod, _)) => {
+                            if product < *best_prod {
+                                best = Some((device, product, path));
+                            }
+                        }
+                    }
                 }
             }
         }
+    }
+
+    if let Some((device, product_id, path)) = best {
+        info!(
+            "Selected mouse device: {} at {} (product: 0x{:04x})",
+            device.name().unwrap_or("Unknown"),
+            path.display(),
+            product_id
+        );
+        return Ok(device);
     }
 
     anyhow::bail!("No suitable mouse device found. Please specify a device path with --device")

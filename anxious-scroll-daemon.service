@@ -1,6 +1,6 @@
 [Unit]
 Description=Anxious Scroll Daemon - Mouse scroll wheel acceleration
-Documentation=https://github.com/your-repo/cursor-anxious
+Documentation=https://github.com/Snehal-Reddy/cursor-anxious
 After=multi-user.target
 Wants=multi-user.target
 
