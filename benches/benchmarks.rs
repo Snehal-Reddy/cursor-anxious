@@ -37,50 +37,116 @@ fn create_anxious_state_with_time(prev_time: SystemTime) -> AnxiousState {
 fn create_test_events() -> Vec<InputEvent> {
     let base_time = UNIX_EPOCH + Duration::from_secs(1000000000);
     vec![
-        // High-res wheel events (these get processed) - simulate realistic scroll sequence
+        // Chronologically ordered events across all types
+        // 0 ms
+        create_input_event_with_timestamp(
+            EventType::RELATIVE,
+            RelativeAxisCode::REL_WHEEL_HI_RES.0,
+            -120,
+            base_time + Duration::from_millis(0),
+        ),
+        // 1 ms
         create_input_event_with_timestamp(
             EventType::RELATIVE,
             RelativeAxisCode::REL_WHEEL_HI_RES.0,
             120,
-            base_time + Duration::from_millis(0),
+            base_time + Duration::from_millis(1),
         ),
-        create_input_event_with_timestamp(
-            EventType::RELATIVE,
-            RelativeAxisCode::REL_WHEEL_HI_RES.0,
-            240,
-            base_time + Duration::from_millis(10),
-        ),
-        create_input_event_with_timestamp(
-            EventType::RELATIVE,
-            RelativeAxisCode::REL_WHEEL_HI_RES.0,
-            360,
-            base_time + Duration::from_millis(20),
-        ),
-        // Regular wheel events (these get dropped)
+        // 8 ms
         create_input_event_with_timestamp(
             EventType::RELATIVE,
             RelativeAxisCode::REL_WHEEL.0,
             1,
+            base_time + Duration::from_millis(8),
+        ),
+        // 10 ms
+        create_input_event_with_timestamp(
+            EventType::RELATIVE,
+            RelativeAxisCode::REL_WHEEL_HI_RES.0,
+            -120,
+            base_time + Duration::from_millis(10),
+        ),
+        // 12 ms
+        create_input_event_with_timestamp(
+            EventType::RELATIVE,
+            RelativeAxisCode::REL_X.0,
+            10,
+            base_time + Duration::from_millis(12),
+        ),
+        // 15 ms
+        create_input_event_with_timestamp(
+            EventType::RELATIVE,
+            RelativeAxisCode::REL_WHEEL_HI_RES.0,
+            120,
+            base_time + Duration::from_millis(15),
+        ),
+        // 20 ms
+        create_input_event_with_timestamp(
+            EventType::RELATIVE,
+            RelativeAxisCode::REL_WHEEL_HI_RES.0,
+            -120,
+            base_time + Duration::from_millis(20),
+        ),
+        // 25 ms
+        create_input_event_with_timestamp(
+            EventType::RELATIVE,
+            RelativeAxisCode::REL_WHEEL.0,
+            -1,
+            base_time + Duration::from_millis(25),
+        ),
+        // 30 ms
+        create_input_event_with_timestamp(
+            EventType::RELATIVE,
+            RelativeAxisCode::REL_Y.0,
+            5,
             base_time + Duration::from_millis(30),
+        ),
+        // 1 s
+        create_input_event_with_timestamp(
+            EventType::RELATIVE,
+            RelativeAxisCode::REL_WHEEL.0,
+            1,
+            base_time + Duration::from_secs(1),
+        ),
+        create_input_event_with_timestamp(
+            EventType::RELATIVE,
+            RelativeAxisCode::REL_X.0,
+            -8,
+            base_time + Duration::from_secs(1),
+        ),
+        // 2 s
+        create_input_event_with_timestamp(
+            EventType::RELATIVE,
+            RelativeAxisCode::REL_WHEEL_HI_RES.0,
+            120,
+            base_time + Duration::from_secs(2),
         ),
         create_input_event_with_timestamp(
             EventType::RELATIVE,
             RelativeAxisCode::REL_WHEEL.0,
             -1,
-            base_time + Duration::from_millis(40),
+            base_time + Duration::from_secs(2),
         ),
-        // Other events (these get passed through)
-        create_input_event_with_timestamp(
-            EventType::RELATIVE,
-            RelativeAxisCode::REL_X.0,
-            10,
-            base_time + Duration::from_millis(50),
-        ),
+        // 3 s
         create_input_event_with_timestamp(
             EventType::RELATIVE,
             RelativeAxisCode::REL_Y.0,
-            5,
-            base_time + Duration::from_millis(60),
+            -3,
+            base_time + Duration::from_secs(3),
+        ),
+        // 4 s
+        create_input_event_with_timestamp(
+            EventType::RELATIVE,
+            RelativeAxisCode::REL_WHEEL_HI_RES.0,
+            -120,
+            base_time + Duration::from_secs(4),
+        ),
+        // 1 h
+        create_input_event_with_timestamp(
+            EventType::RELATIVE,
+            RelativeAxisCode::REL_WHEEL_HI_RES.0,
+            120,
+            base_time + Duration::from_secs(3600),
         ),
     ]
 }
@@ -97,7 +163,7 @@ fn benchmark_apply_anxious_scroll(c: &mut Criterion) {
 
         b.iter(|| {
             black_box(apply_anxious_scroll(
-                black_box(120.0),
+                black_box(-120.0), // Use realistic scroll value
                 black_box(timestamp),
                 black_box(&params),
                 black_box(&mut state),
