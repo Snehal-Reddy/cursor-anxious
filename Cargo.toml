@@ -13,9 +13,13 @@ anyhow = "1.0"
 log = "0.4"
 env_logger = "0.11.8"
 libc = "0.2"
+exp_lut_macro = { path = "./exp_lut_macro"}
 
 [dev-dependencies]
 criterion = { version = "0.7", features = ["html_reports"] }
+
+[workspace]
+members = ["exp_lut_macro"]
 
 [[bench]]
 name = "benchmarks"

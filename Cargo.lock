@@ -300,6 +300,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "exp_lut_macro"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "funty"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -404,6 +413,7 @@ dependencies = [
  "criterion",
  "env_logger",
  "evdev",
+ "exp_lut_macro",
  "libc",
  "log",
  "nix 0.30.1",
