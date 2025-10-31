@@ -40,11 +40,13 @@ impl AnxiousState {
 }
 
 /// Constants for the exponential lookup table
+/// EXP_LOOKUP_STEPS >= 2 and EXP_LOOKUP_END > EXP_LOOKUP_START is assumed
 const EXP_LOOKUP_START: f32 = -20.0;
 const EXP_LOOKUP_END: f32 = 20.0;
 const EXP_LOOKUP_STEPS: usize = 1000;
 const EXP_LOOKUP_STEP_SIZE: f32 = (EXP_LOOKUP_END - EXP_LOOKUP_START) / EXP_LOOKUP_STEPS as f32;
 
+// exp_lut_macro::exp_lut_macro!(EXP_LOOKUP_START, EXP_LOOKUP_END, EXP_LOOKUP_STEPS);
 
 #[inline(always)]
 /// We use a logistic function as the transformation function.
