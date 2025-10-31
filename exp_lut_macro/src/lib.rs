@@ -1,7 +1,7 @@
 extern crate proc_macro;
 
 use proc_macro::TokenStream;
-use quote::{quote, ToTokens};
+use quote::quote;
 use syn::{
     Ident, LitFloat, LitInt, LitStr, Result, Token, parse::{Parse, ParseStream}, parse_macro_input
 };
@@ -55,6 +55,28 @@ impl Parse for ExpLutMacroInput {
 }
 
 #[proc_macro]
+/// Generate an exponential lookup table and related constants.
+///
+/// Inputs are literals:
+/// - `start: f32`  — lower bound (inclusive)
+/// - `end: f32`    — upper bound (inclusive, requires `end > start`)
+/// - `steps: usize` — number of samples (must be >= 2)
+///
+/// Expansion defines the following `const`s in the invocation scope:
+/// - `EXP_LOOKUP_START: f32`
+/// - `EXP_LOOKUP_END: f32`
+/// - `EXP_LOOKUP_STEPS: usize`
+/// - `EXP_LOOKUP_STEP_SIZE: f32`
+/// - `EXP_LOOKUP_LUT: [f32; EXP_LOOKUP_STEPS]` (values of `e^x` over `[start, end]`)
+///
+/// Example:
+/// ```ignore
+/// exp_lut_macro::exp_lut_macro!(
+///     start: -20.0,
+///     end: 20.0,
+///     steps: 1000
+/// );
+/// ```
 pub fn exp_lut_macro(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as ExpLutMacroInput);
 
@@ -71,12 +93,16 @@ pub fn exp_lut_macro(input: TokenStream) -> TokenStream {
     let end: f32 = input.end;
     let step_size: f32 = (end - start) / steps as f32;
 
-    let expanded = quote! {
-        const LUT: [f32; #steps] = core::array::from_fn(|i| {
-            let x = #start + (i as f32 * #step_size);
-            x.exp()
-        });
-    };
+    let lut: Vec<f32> = (0..steps).map(|i| {
+        let x = start + (i as f32 * step_size);
+        x.exp()
+    }).collect();
 
-    TokenStream::from(expanded)
+    TokenStream::from(quote! { 
+        const EXP_LOOKUP_START: f32 = #start;
+        const EXP_LOOKUP_END: f32 = #end;
+        const EXP_LOOKUP_STEPS: usize = #steps;
+        const EXP_LOOKUP_STEP_SIZE: f32 = #step_size;
+        const EXP_LOOKUP_LUT: [f32; #steps] = [ #(#lut),* ]; 
+    })
 }

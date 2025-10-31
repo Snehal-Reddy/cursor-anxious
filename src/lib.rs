@@ -39,14 +39,24 @@ impl AnxiousState {
     }
 }
 
-/// Constants for the exponential lookup table
-/// EXP_LOOKUP_STEPS >= 2 and EXP_LOOKUP_END > EXP_LOOKUP_START is assumed
-const EXP_LOOKUP_START: f32 = -20.0;
-const EXP_LOOKUP_END: f32 = 20.0;
-const EXP_LOOKUP_STEPS: usize = 1000;
-const EXP_LOOKUP_STEP_SIZE: f32 = (EXP_LOOKUP_END - EXP_LOOKUP_START) / EXP_LOOKUP_STEPS as f32;
+// Exponential lookup table (LUT) configuration and data
+//
+// The following macro invocation expands at compile time to define:
+// - EXP_LOOKUP_START: f32    (inclusive lower bound)
+// - EXP_LOOKUP_END: f32      (inclusive upper bound)
+// - EXP_LOOKUP_STEPS: usize  (number of samples; must be >= 2)
+// - EXP_LOOKUP_STEP_SIZE: f32
+// - EXP_LOOKUP_LUT: [f32; EXP_LOOKUP_STEPS]  (samples of e^x over [START, END])
+//
+// Inputs must be literals because the proc macro computes the LUT at
+// compile time and emits the array as a literal. Adjust START/END/STEPS
+// here to regenerate the table.
+exp_lut_macro::exp_lut_macro!(
+    start: -20.0,
+    end: 20.0,
+    steps: 1000
+);
 
-// exp_lut_macro::exp_lut_macro!(EXP_LOOKUP_START, EXP_LOOKUP_END, EXP_LOOKUP_STEPS);
 
 #[inline(always)]
 /// We use a logistic function as the transformation function.
