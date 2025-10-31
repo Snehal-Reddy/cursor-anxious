@@ -57,6 +57,16 @@ exp_lut_macro::exp_lut_macro!(
     steps: 1000
 );
 
+#[inline(always)]
+fn fast_exp(x: f32) -> f32 {
+    if x >= EXP_LOOKUP_START && x <= EXP_LOOKUP_END {
+        let index = ((x - EXP_LOOKUP_START) / EXP_LOOKUP_STEP_SIZE) as usize;
+        EXP_LOOKUP_LUT[index]
+    } else {
+        x.exp()
+    }
+}
+
 
 #[inline(always)]
 /// We use a logistic function as the transformation function.

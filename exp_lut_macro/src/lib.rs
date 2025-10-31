@@ -3,7 +3,7 @@ extern crate proc_macro;
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-    Ident, LitFloat, LitInt, LitStr, Result, Token, parse::{Parse, ParseStream}, parse_macro_input
+    Ident, LitFloat, LitInt, Result, Token, parse::{Parse, ParseStream}, parse_macro_input
 };
 
 #[derive(Debug, Clone)]

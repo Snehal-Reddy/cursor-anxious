@@ -4,7 +4,6 @@ use evdev::{Device, EventType, RelativeAxisCode, uinput::VirtualDevice};
 use log::{error, info};
 use mouse_scroll_daemon::{AnxiousParams, AnxiousState, process_events};
 use std::path::PathBuf;
-use std::path::Path;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
