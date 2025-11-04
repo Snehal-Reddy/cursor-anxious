@@ -158,10 +158,11 @@ fn benchmark_apply_anxious_scroll(c: &mut Criterion) {
     group.bench_function("core_function", |b| {
         let params = AnxiousParams::default();
         let base_time = UNIX_EPOCH + Duration::from_secs(1000000000);
-        let mut state = create_anxious_state_with_time(base_time);
         let timestamp = base_time + Duration::from_millis(10);
 
         b.iter(|| {
+            // Reset state for each iteration since apply_anxious_scroll mutates it
+            let mut state = create_anxious_state_with_time(base_time);
             black_box(apply_anxious_scroll(
                 black_box(-120.0), // Use realistic scroll value
                 black_box(timestamp),
