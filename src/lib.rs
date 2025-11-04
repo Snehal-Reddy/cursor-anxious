@@ -2,6 +2,7 @@
 
 use evdev::{EventType, InputEvent, RelativeAxisCode};
 use std::time::SystemTime;
+use log::error;
 
 /// Parameters for the anxious scroll algorithm
 #[derive(Debug, Clone)]
@@ -52,10 +53,11 @@ impl AnxiousState {
 // compile time and emits the array as a literal. Adjust START/END/STEPS
 // here to regenerate the table.
 exp_lut_macro::exp_lut_macro!(
-    start: -20.0,
-    end: 20.0,
-    steps: 1000
+    start: -50.0,
+    end: 50.0,
+    steps: 10000
 );
+
 
 #[inline(always)]
 fn fast_exp(x: f32) -> f32 {
@@ -93,7 +95,7 @@ pub fn apply_anxious_scroll(
     let c = (anxious_params.max_sens / anxious_params.base_sens) - 1.0;
     // TODO: Use fast approximation for the calculation
     let sens = anxious_params.max_sens
-        / (1.0 + c * (-1.0 * vel as f32 * anxious_params.ramp_up_rate).exp());
+        / fast_exp(1.0 + c * (-1.0 * vel as f32 * anxious_params.ramp_up_rate));
     return (value * sens) as i32;
 }
 
