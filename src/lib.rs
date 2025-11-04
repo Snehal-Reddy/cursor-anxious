@@ -2,7 +2,6 @@
 
 use evdev::{EventType, InputEvent, RelativeAxisCode};
 use std::time::SystemTime;
-use log::error;
 
 /// Parameters for the anxious scroll algorithm
 #[derive(Debug, Clone)]
@@ -93,9 +92,9 @@ pub fn apply_anxious_scroll(
 
     let vel = value.abs() / elapsed_time.as_millis() as f32;
     let c = (anxious_params.max_sens / anxious_params.base_sens) - 1.0;
-    // TODO: Use fast approximation for the calculation
-    let sens = anxious_params.max_sens
-        / fast_exp(1.0 + c * (-1.0 * vel as f32 * anxious_params.ramp_up_rate));
+    let exp_term = fast_exp(-anxious_params.ramp_up_rate * vel);
+    // Apply the logistic function: max_sens / (1 + c * e^(-ramp_up_rate * vel))
+    let sens = anxious_params.max_sens / (1.0 + c * exp_term);
     return (value * sens) as i32;
 }
 
