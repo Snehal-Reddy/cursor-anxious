@@ -52,8 +52,8 @@ impl AnxiousState {
 // compile time and emits the array as a literal. Adjust START/END/STEPS
 // here to regenerate the table.
 exp_lut_macro::exp_lut_macro!(
-    start: -50.0,
-    end: 50.0,
+    start: -12.0,
+    end: 12.0,
     steps: 10000
 );
 
