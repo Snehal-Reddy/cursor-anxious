@@ -38,6 +38,33 @@ Where:
 
 This creates a smooth curve that starts slow for precision and ramps up for speed.
 
+## 📥 Download Pre-built Binaries
+
+Pre-built binaries are available for download from the [GitHub Releases](https://github.com/Snehal-Reddy/cursor-anxious/releases) page.
+
+### Available Builds
+
+- **x86_64-unknown-linux-gnu** - Standard Linux x86_64 (most common)
+- **x86_64-unknown-linux-musl** - Static binary, works on more Linux distributions
+- **aarch64-unknown-linux-gnu** - ARM64 Linux (Raspberry Pi, ARM servers, etc.)
+
+### Quick Install from Release
+
+1. Download the appropriate `.tar.gz` file for your system from the [latest release](https://github.com/Snehal-Reddy/cursor-anxious/releases/latest)
+2. Extract the archive:
+   ```bash
+   tar -xzf anxious-scroll-daemon-v1.0-<target>.tar.gz
+   ```
+3. Install the binary and service:
+   ```bash
+   sudo cp anxious-scroll-daemon-<target> /usr/local/bin/anxious-scroll-daemon
+   sudo chmod +x /usr/local/bin/anxious-scroll-daemon
+   sudo cp anxious-scroll-daemon.service /etc/systemd/system/
+   sudo systemctl daemon-reload
+   sudo systemctl enable anxious-scroll-daemon
+   sudo systemctl start anxious-scroll-daemon
+   ```
+
 ## 📦 Installation as System Service
 
 ### Quick Installation

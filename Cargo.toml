@@ -1,6 +1,6 @@
 [package]
 name = "mouse-scroll-daemon"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2024"
 authors = ["Snehal Koukuntla <snehalreddyk@gmail.com>"]
 description = "Userspace scroll wheel daemon using evdev/uinput"
